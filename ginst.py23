@@ -48,7 +48,7 @@ def mergeAndSpace (dataIn):
 #处理端口名列表端中的定义，只保留端口名
 def getModulePortName (onlyCode):
     regexDelDefine = re.compile(r'''
-        (\#\s*\(.*?\)|input|output|inout|wire|reg|logic|\[.*?\]|,)
+        (\#\s*\(.*?\)|\binput\b|\boutput\b|\binout\b|\bwire\b|\breg\b|\blogic\b|\[.*?\]|,)
         ''', re.X)
     resultOnlyPort = regexDelDefine.sub(r' ', onlyCode)
     
