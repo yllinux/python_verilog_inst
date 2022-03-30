@@ -1,0 +1,198 @@
+#!/usr/bin/python
+# coding=utf-8
+#============================================================================
+#
+#          Author : yangl - 283145107@qq.com
+#       What's Up : Keep on going never give up
+#     Create Date : 2020-01-25 11:54
+#   Last Modified : 2020-04-25 21:43
+#        Filename : ginst.py23
+#     Description : 
+#
+#============================================================================
+
+import re      #regex
+import os      #system cmd
+import sys     #argv
+
+#---------------------------------------------------------
+#获取Verilog文件内容
+def getSourceText (sourceFileName):
+    with open(sourceFileName, 'r') as sourceFileNameObj:
+    #with open(sourceFileName, 'r', encoding='utf-8') as sourceFileNameObj:
+        srcText = sourceFileNameObj.read()
+        return srcText
+
+#---------------------------------------------------------
+#去除Verilog代码注释
+def removeCodeComment (sourceCodeText):
+    regexComment = re.compile(r'''(
+        (\/\*(\s|.)*?\*\/) |           # match /*.....*/
+        (\/\/.*)                       # match //......
+        )''', re.X) 
+
+    result = regexComment.sub(r'', sourceCodeText)  #remove comment
+    return result
+
+#---------------------------------------------------------
+#合并代码为一行并去除多余空格，可有可无的处理，为了提高稳定性而保留
+def mergeAndSpace (dataIn):
+    regexNullLine = re.compile(r'[\r\n\f]')         # match linefeeds
+    resultOneLine = regexNullLine.sub(r' ', dataIn) # remove linefeeds
+
+    regexSpace = re.compile(r'\s+')               # match extra space
+    result = regexSpace.sub(r' ', resultOneLine)  # remove space
+    return result
+
+#---------------------------------------------------------
+#处理端口名列表端中的定义，只保留端口名
+#def getModulePortName (onlyCode):
+#    regexDelDefine = re.compile(r'''
+#        (\#\s*\(.*?\)|\binput\b|\boutput\b|\binout\b|\bwire\b|\breg\b|\blogic\b|\[.*?\]|,)
+#        ''', re.X)
+#    resultOnlyPort = regexDelDefine.sub(r' ', onlyCode)
+#    
+#    regexSpace = re.compile(r'\s+')                # match extra space
+#    result = regexSpace.sub(r' ', resultOnlyPort)  # remove space
+#
+#    #print(result)
+#    return  result
+def getModulePortName (onlyCode):
+    regexDelDefine0 = re.compile(r'''
+        (\#\s*\(.*?\)\s*\()
+        ''', re.X)
+    resultOnlyPort0 = regexDelDefine0.sub(r'(', onlyCode)  # remove parameter
+    
+    regexDelDefine = re.compile(r'''
+        (\binput\b|\boutput\b|\binout\b|\bwire\b|\breg\b|\blogic\b|\[.*?\]|,)
+        ''', re.X)
+    resultOnlyPort = regexDelDefine.sub(r' ', resultOnlyPort0) # remove port define
+    
+    regexSpace = re.compile(r'\s+')                # match extra space
+    result = regexSpace.sub(r' ', resultOnlyPort)  # remove space
+
+    #print(result)
+    return  result
+
+#---------------------------------------------------------
+#提取模块名和端口名生成例化
+def getALLModuleInstance(verilogFormatText, resultFileName):
+    regexAllModule = re.compile(r'''
+        (\bmodule\b[\s\S]*?\bendmodule\b)     # match module ... endmodule
+        ''',re.X)
+    allModule = regexAllModule.findall(verilogFormatText) # get all module text
+    moduleNum = len(allModule)
+    print("\nnumber of module: %d\n"%(moduleNum))
+
+    regexDelCode = re.compile(r'''
+        (\bmodule\b\s+)
+        (\b\w+\b)
+        (\s*)
+        (\(.*?\))
+        (\s*;)
+        ''', re.X | re.U)
+    
+    regexPortList = re.compile(r'''
+        (\b\w+\b)                         # varibale name
+        ''', re.X)
+
+    tempFileName = resultFileName
+    with open(tempFileName,'w+') as tempObj:
+    #with open(tempFileName,'w+', encoding='utf-8') as tempObj:
+        if allModule is not None:
+            for i in range(moduleNum):      #遍历每一个module
+                resultFin = allModule[i]
+                #print(allModule[i])
+                moduleFin = regexDelCode.search(resultFin)
+                print(moduleFin.group(2) + ' u_' + moduleFin.group(2) + ' (')
+                tempObj.write(moduleFin.group(2) + ' u_' + moduleFin.group(2) + ' (\n')
+
+                
+                portFin = regexPortList.findall(moduleFin.group(4))
+                #print("hello")
+                #print(portFin)
+                #print(portFin[1])
+                #print("hello1")
+                portNum = len(portFin)
+                portNameLong = 0
+                for n   in range(portNum):  #遍历所有端口名，找出最大字符长度
+                    portName = portFin[n]
+                    if len(portName) > portNameLong:
+                        portNameLong = len(portName)
+                #print(portNameLong)
+                spaceNum = 0
+                for num in range(portNum):  #例化端口名
+                    spaceNum = portNameLong - len(portFin[num])
+                    if num == portNum -  1:
+                        print('    .' + portFin[num] + spaceNum * ' ' + '    ( ' + portFin[num] + spaceNum * ' ' + ' )\n' + ');\n')
+                        tempObj.write('    .' + portFin[num] + spaceNum * ' ' + '    ( ' + portFin[num] + spaceNum * ' ' + ' )\n' + ');\n\n')
+                    else:
+                        print('    .' + portFin[num] + spaceNum * ' ' + '    ( ' + portFin[num] + spaceNum * ' ' + ' ),')
+                        tempObj.write('    .' + portFin[num] + spaceNum * ' ' + '    ( ' + portFin[num] + spaceNum * ' ' + ' ),\n')
+
+
+
+
+##---------------------------------------------------------
+##提取模块名和端口名生成例化
+#def genVlogInstance (verilogFormatText, resultFileName):
+#    regexAllModule = re.compile(r'''
+#        (\bmodule\b[\s\S]*?\bendmodule\b)     # match module ... endmodule
+#        ''',re.X)
+#    allModule = regexAllModule.findall(verilogFormatText) # get all module text
+#    moduleNum = len(allModule)
+#    print("\nnumber of module: %d\n"%(moduleNum))
+#
+#    regexModuleName = re.compile(r'''
+#        (\bmodule\b)
+#        (\s+)
+#        (\b\w+\b)
+#        ''', re.X)
+#
+#    regexPortList = re.compile(r'''
+#        (\b(input|output|inout)\b)        # port type define
+#        (\s*)?                            # space or tab
+#        (\b(wire|reg|logic)\b\s*)?        # variable type
+#        (\[.*?\]\s*)?                     # bit wide
+#        (\b\w+\b)                         # varibale name
+#        ''', re.X)
+#
+#    tempFileName = resultFileName
+#    with open(tempFileName,'w+') as tempObj:
+#    #with open(tempFileName,'w+', encoding='utf-8') as tempObj:
+#        if allModule is not None:
+#            for i in range(moduleNum):      #遍历每一个module
+#                resultFin = allModule[i]
+#                moduleFin = regexModuleName.search(resultFin)
+#                print(moduleFin.group(3) + ' u_' + moduleFin.group(3) + '(')
+#                tempObj.write(moduleFin.group(3) + ' u_' + moduleFin.group(3) + '(\n')
+#
+#                portFin = regexPortList.findall(resultFin)
+#                portNum = len(portFin)
+#                portNameLong = 0
+#                for n   in range(portNum):  #遍历所有端口名，找出最大字符长度
+#                    portName = portFin[n][6]
+#                    if len(portName) > portNameLong:
+#                        portNameLong = len(portName)
+#                spaceNum = 0
+#                for num in range(portNum):  #例化端口名
+#                    spaceNum = portNameLong - len(portFin[num][6])
+#                    if num == portNum -  1:
+#                        print('    .' + portFin[num][6] + spaceNum * ' ' + '  ()\n' + ');\n')
+#                        tempObj.write('    .' + portFin[num][6] + spaceNum * ' ' + '  ()\n' + ');\n\n')
+#                    else:
+#                        print('    .' + portFin[num][6] + spaceNum * ' ' + '  (),')
+#                        tempObj.write('    .' + portFin[num][6] + spaceNum * ' ' + '  (),\n')
+#
+#---------------------------------------------------------
+sourceFileName = sys.argv[1]
+src  = getSourceText (sourceFileName)
+prc  = removeCodeComment (src)
+prc1 = mergeAndSpace (prc)
+prc2 = getModulePortName(prc1)
+#genVlogInstance (prc1, sourceFileName + '.instance')
+getALLModuleInstance(prc2, sourceFileName + '.instance')
+
+#genVlogInstance (prc, sourceFileName + '.instance')
+os.remove (sourceFileName + '.instance') # delete the instance temp file
+
